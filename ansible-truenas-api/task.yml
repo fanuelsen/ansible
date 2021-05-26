@@ -1,0 +1,61 @@
+- name: Checks if there is an update available from update server.
+  uri:
+    method: POST
+    url: https://{{ item.ip }}/api/v2.0/update/check_available
+    return_content: true
+    validate_certs: '{{ item.validate_certs }}'
+    headers:
+      Content-Type: application/json
+      Authorization: 'Bearer {{ item.token }}'
+  register: truenas_pending_updates
+
+- name: Downloads (if not already in cache) and apply an update.
+  uri:
+    method: POST
+    url: https://{{ item.ip }}/api/v2.0/update/update
+    return_content: true
+    validate_certs: '{{ item.validate_certs }}'
+    headers:
+      Content-Type: application/json
+      Authorization: 'Bearer {{ item.token }}'
+  when: "truenas_pending_updates.json.status == 'AVAILABLE'"
+
+- name: Wait for update to finish.
+  uri:
+    method: POST
+    url: https://{{ item.ip }}/api/v2.0/update/check_available
+    return_content: true
+    validate_certs: '{{ item.validate_certs }}'
+    headers:
+      Content-Type: application/json
+      Authorization: 'Bearer {{ item.token }}'
+  register: truenas_reboot_required
+  when: "truenas_pending_updates.json.status == 'AVAILABLE' or truenas_pending_updates.json.status == 'REBOOT_REQUIRED'"
+  until: "truenas_reboot_required.json.status == 'REBOOT_REQUIRED'"
+  retries: 20
+  delay: 30
+
+- name: Reboot host
+  uri:
+    method: POST
+    url: https://{{ item.ip }}/api/v2.0/system/reboot
+    return_content: true
+    validate_certs: '{{ item.validate_certs }}'
+    headers:
+      Content-Type: application/json
+      Authorization: 'Bearer {{ item.token }}'
+  when: truenas_reboot_required.json.status | default (false) == 'REBOOT_REQUIRED'
+
+- name: Returns whether the system completed boot and is ready to use.
+  uri:
+    method: GET
+    url: https://{{ item.ip }}/api/v2.0/system/state
+    return_content: true
+    validate_certs: '{{ item.validate_certs }}'
+    headers:
+      Content-Type: application/json
+      Authorization: 'Bearer {{ item.token }}'
+  register: truenas_system_ready
+  until: truenas_system_ready.content == '"READY"'
+  retries: 20
+  delay: 30
