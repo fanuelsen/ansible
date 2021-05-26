@@ -5,3 +5,4 @@
 | ---- |----| 
 | ```ip:``` | ip / dns of your truenas host |
 | ```token:``` | API Bearer token generated from the Truenas GUI |
+| ```validate_certs::``` | Set to false if you have self generated certs |
