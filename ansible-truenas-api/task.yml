@@ -31,7 +31,7 @@
       Authorization: 'Bearer {{ item.token }}'
   register: truenas_reboot_required
   when: "truenas_pending_updates.json.status == 'AVAILABLE' or truenas_pending_updates.json.status == 'REBOOT_REQUIRED'"
-  until: "truenas_reboot_required.json.status == 'REBOOT_REQUIRED'"
+  until: "(truenas_reboot_required.json|default(dict(status=WAITING))).status == 'REBOOT_REQUIRED'"
   retries: 20
   delay: 30
 
